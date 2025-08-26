@@ -1,5 +1,6 @@
 """
 Restricted Master Problem (RMP) solver using Gurobi.
+Integrated with optimized Gurobi configuration for better performance.
 """
 
 import gurobipy as gp
@@ -9,6 +10,7 @@ from typing import Dict, List, Tuple, Any, Optional
 
 from data_structures import Column, ColumnType, VehicleType, BapNode, SolutionStats
 from data_loader import DataLoader
+from gurobi_config import gurobi_config
 from utils import log_message
 from config import RESOURCE_TIME_SLICE, COLUMN_GENERATION_TOLERANCE
 
@@ -37,10 +39,11 @@ class RMPSolver:
             True if model built successfully, False otherwise
         """
         try:
-            # Create new model
-            self.model = gp.Model("RMP")
-            self.model.setParam('OutputFlag', 0)  # Suppress output
-            self.model.setParam('Method', 1)  # Use dual simplex
+            # Create optimized Gurobi model for RMP
+            self.model = gurobi_config.create_model("RMP", "RMP", silent=True)
+            if self.model is None:
+                log_message("Failed to create Gurobi model - license issues", "ERROR")
+                return False
             
             # Create variables for each column
             self.variables = {}

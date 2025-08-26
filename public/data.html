@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Management - Branch-and-Price Solver</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="text-white hover:text-gray-200 mr-4">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <i class="fas fa-database text-white text-2xl mr-3"></i>
+                    <span class="text-white text-xl font-bold">Data Management</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Tabs -->
+        <div class="mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="-mb-px flex space-x-8">
+                    <button onclick="showTab('nodes')" class="tab-btn active py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
+                        <i class="fas fa-map-marker-alt mr-2"></i>Network Nodes
+                    </button>
+                    <button onclick="showTab('vehicles')" class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="fas fa-truck mr-2"></i>Vehicles
+                    </button>
+                    <button onclick="showTab('demands')" class="tab-btn py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="fas fa-box mr-2"></i>Demands
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Network Nodes Tab -->
+        <div id="nodes-tab" class="tab-content">
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Network Nodes</h3>
+                    <button onclick="showAddNodeForm()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                        <i class="fas fa-plus mr-2"></i>Add Node
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="nodes-list" class="space-y-4">
+                        <p class="text-gray-500">Loading nodes...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicles Tab -->
+        <div id="vehicles-tab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Vehicles</h3>
+                    <button onclick="showAddVehicleForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                        <i class="fas fa-plus mr-2"></i>Add Vehicle
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="vehicles-list" class="space-y-4">
+                        <p class="text-gray-500">Loading vehicles...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Demands Tab -->
+        <div id="demands-tab" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-medium text-gray-900">Delivery Demands</h3>
+                    <button onclick="showAddDemandForm()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">
+                        <i class="fas fa-plus mr-2"></i>Add Demand
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="demands-list" class="space-y-4">
+                        <p class="text-gray-500">Loading demands...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Node Modal -->
+    <div id="node-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Add Network Node</h3>
+            <form id="node-form">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Node ID</label>
+                        <input type="number" name="id" required class="w-full border border-gray-300 rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <select name="node_type" required class="w-full border border-gray-300 rounded px-3 py-2">
+                            <option value="depot">Depot</option>
+                            <option value="customer">Customer</option>
+                            <option value="metro_station">Metro Station</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">X Coordinate</label>
+                        <input type="number" step="0.1" name="x_coord" required class="w-full border border-gray-300 rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Y Coordinate</label>
+                        <input type="number" step="0.1" name="y_coord" required class="w-full border border-gray-300 rounded px-3 py-2">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="hideModal('node-modal')" class="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded">Cancel</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Add Node</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentTab = 'nodes';
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active', 'border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            
+            // Activate selected button
+            event.target.classList.add('active', 'border-blue-500', 'text-blue-600');
+            event.target.classList.remove('border-transparent', 'text-gray-500');
+            
+            currentTab = tabName;
+            loadTabData(tabName);
+        }
+
+        async function loadTabData(tab) {
+            try {
+                if (tab === 'nodes') {
+                    await loadNodes();
+                } else if (tab === 'vehicles') {
+                    await loadVehicles();
+                } else if (tab === 'demands') {
+                    await loadDemands();
+                }
+            } catch (error) {
+                console.error(`Error loading ${tab}:`, error);
+            }
+        }
+
+        async function loadNodes() {
+            try {
+                const response = await fetch('/api/nodes');
+                const nodes = await response.json();
+                
+                const container = document.getElementById('nodes-list');
+                if (nodes.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">No nodes found. Add a node to get started.</p>';
+                    return;
+                }
+                
+                container.innerHTML = nodes.map(node => `
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-medium text-gray-900">Node ${node.id}</h4>
+                                <p class="text-sm text-gray-600">${node.node_type}</p>
+                                <p class="text-sm text-gray-500">Location: (${node.x_coord}, ${node.y_coord})</p>
+                                ${node.demand > 0 ? `<p class="text-sm text-gray-500">Demand: ${node.demand}</p>` : ''}
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="editNode(${node.id})" class="text-blue-600 hover:text-blue-800">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteNode(${node.id})" class="text-red-600 hover:text-red-800">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                document.getElementById('nodes-list').innerHTML = '<p class="text-red-500">Error loading nodes</p>';
+            }
+        }
+
+        async function loadVehicles() {
+            try {
+                const response = await fetch('/api/vehicles');
+                const vehicles = await response.json();
+                
+                const container = document.getElementById('vehicles-list');
+                if (vehicles.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">No vehicles found. Add a vehicle to get started.</p>';
+                    return;
+                }
+                
+                container.innerHTML = vehicles.map(vehicle => {
+                    const statusColor = vehicle.status === 'available' ? 'text-green-600' : 'text-red-600';
+                    return `
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">${vehicle.id}</h4>
+                                    <p class="text-sm text-gray-600">${vehicle.type} - Capacity: ${vehicle.capacity}</p>
+                                    <p class="text-sm ${statusColor}">Status: ${vehicle.status}</p>
+                                    <p class="text-sm text-gray-500">Speed: ${vehicle.speed} km/h</p>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button onclick="editVehicle('${vehicle.id}')" class="text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteVehicle('${vehicle.id}')" class="text-red-600 hover:text-red-800">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                document.getElementById('vehicles-list').innerHTML = '<p class="text-red-500">Error loading vehicles</p>';
+            }
+        }
+
+        async function loadDemands() {
+            try {
+                const response = await fetch('/api/demands');
+                const demands = await response.json();
+                
+                const container = document.getElementById('demands-list');
+                if (demands.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">No demands found. Add a demand to get started.</p>';
+                    return;
+                }
+                
+                container.innerHTML = demands.map(demand => {
+                    const statusColor = demand.status === 'pending' ? 'text-yellow-600' : 
+                                       demand.status === 'completed' ? 'text-green-600' : 'text-red-600';
+                    return `
+                        <div class="border rounded-lg p-4 bg-gray-50">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-medium text-gray-900">${demand.id}</h4>
+                                    <p class="text-sm text-gray-600">From Node ${demand.origin} to Node ${demand.destination}</p>
+                                    <p class="text-sm text-gray-500">Quantity: ${demand.quantity}</p>
+                                    <p class="text-sm ${statusColor}">Status: ${demand.status}</p>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button onclick="editDemand('${demand.id}')" class="text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteDemand('${demand.id}')" class="text-red-600 hover:text-red-800">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                document.getElementById('demands-list').innerHTML = '<p class="text-red-500">Error loading demands</p>';
+            }
+        }
+
+        function showAddNodeForm() {
+            document.getElementById('node-modal').classList.remove('hidden');
+        }
+
+        function showAddVehicleForm() {
+            alert('Vehicle form coming soon!');
+        }
+
+        function showAddDemandForm() {
+            alert('Demand form coming soon!');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // Handle node form submission
+        document.getElementById('node-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const nodeData = Object.fromEntries(formData);
+            
+            try {
+                const response = await fetch('/api/nodes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(nodeData)
+                });
+                
+                if (response.ok) {
+                    hideModal('node-modal');
+                    e.target.reset();
+                    loadNodes();
+                    alert('Node added successfully!');
+                } else {
+                    alert('Error adding node');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error adding node');
+            }
+        });
+
+        function editNode(id) {
+            alert(`Edit node ${id} - feature coming soon!`);
+        }
+
+        function deleteNode(id) {
+            if (confirm(`Are you sure you want to delete node ${id}?`)) {
+                alert(`Delete node ${id} - feature coming soon!`);
+            }
+        }
+
+        function editVehicle(id) {
+            alert(`Edit vehicle ${id} - feature coming soon!`);
+        }
+
+        function deleteVehicle(id) {
+            if (confirm(`Are you sure you want to delete vehicle ${id}?`)) {
+                alert(`Delete vehicle ${id} - feature coming soon!`);
+            }
+        }
+
+        function editDemand(id) {
+            alert(`Edit demand ${id} - feature coming soon!`);
+        }
+
+        function deleteDemand(id) {
+            if (confirm(`Are you sure you want to delete demand ${id}?`)) {
+                alert(`Delete demand ${id} - feature coming soon!`);
+            }
+        }
+
+        // Load initial data
+        window.addEventListener('DOMContentLoaded', () => {
+            loadNodes();
+        });
+    </script>
+</body>
+</html>

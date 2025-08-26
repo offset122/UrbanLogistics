@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Data - Branch-and-Price Solver</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .upload-area:hover {
+            border-color: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="text-white hover:text-gray-200 mr-4">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <i class="fas fa-upload text-white text-2xl mr-3"></i>
+                    <span class="text-white text-xl font-bold">Upload Data Files</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Instructions -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <h3 class="text-lg font-medium text-blue-900 mb-2">
+                <i class="fas fa-info-circle mr-2"></i>Upload Instructions
+            </h3>
+            <p class="text-blue-800 mb-4">Upload Excel files (.xlsx) containing your network data. The system supports the following data types:</p>
+            <ul class="text-blue-800 space-y-1">
+                <li><strong>Nodes:</strong> Network locations (depots, customers, metro stations)</li>
+                <li><strong>Vehicles:</strong> Available vehicles (trucks, drones) with specifications</li>
+                <li><strong>Demands:</strong> Delivery requests with origins, destinations, and quantities</li>
+                <li><strong>Metro Timetable:</strong> Public transport schedules</li>
+                <li><strong>Parameters:</strong> System configuration settings</li>
+            </ul>
+        </div>
+
+        <!-- Upload Forms -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Nodes Upload -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                        <i class="fas fa-map-marker-alt text-blue-500 mr-2"></i>
+                        Network Nodes
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <form class="upload-form" data-type="nodes">
+                        <div class="upload-area rounded-lg p-6 text-center mb-4" ondrop="dropHandler(event, 'nodes')" ondragover="dragOverHandler(event)" ondragleave="dragLeaveHandler(event)">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Drag and drop your nodes Excel file here</p>
+                            <p class="text-sm text-gray-500 mb-4">or</p>
+                            <label class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded cursor-pointer">
+                                <i class="fas fa-folder-open mr-2"></i>Browse Files
+                                <input type="file" name="file" accept=".xlsx" class="hidden" onchange="fileSelected(this, 'nodes')">
+                            </label>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-4">
+                            Expected columns: ID, Type, X_Coordinate, Y_Coordinate, Demand, Service_Time
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                            <i class="fas fa-upload mr-2"></i>Upload Nodes
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Vehicles Upload -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                        <i class="fas fa-truck text-green-500 mr-2"></i>
+                        Vehicles
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <form class="upload-form" data-type="vehicles">
+                        <div class="upload-area rounded-lg p-6 text-center mb-4" ondrop="dropHandler(event, 'vehicles')" ondragover="dragOverHandler(event)" ondragleave="dragLeaveHandler(event)">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Drag and drop your vehicles Excel file here</p>
+                            <p class="text-sm text-gray-500 mb-4">or</p>
+                            <label class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded cursor-pointer">
+                                <i class="fas fa-folder-open mr-2"></i>Browse Files
+                                <input type="file" name="file" accept=".xlsx" class="hidden" onchange="fileSelected(this, 'vehicles')">
+                            </label>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-4">
+                            Expected columns: ID, Type, Capacity, Speed, Cost_Per_KM, Energy_Capacity
+                        </div>
+                        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                            <i class="fas fa-upload mr-2"></i>Upload Vehicles
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Demands Upload -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                        <i class="fas fa-box text-purple-500 mr-2"></i>
+                        Delivery Demands
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <form class="upload-form" data-type="demands">
+                        <div class="upload-area rounded-lg p-6 text-center mb-4" ondrop="dropHandler(event, 'demands')" ondragover="dragOverHandler(event)" ondragleave="dragLeaveHandler(event)">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Drag and drop your demands Excel file here</p>
+                            <p class="text-sm text-gray-500 mb-4">or</p>
+                            <label class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded cursor-pointer">
+                                <i class="fas fa-folder-open mr-2"></i>Browse Files
+                                <input type="file" name="file" accept=".xlsx" class="hidden" onchange="fileSelected(this, 'demands')">
+                            </label>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-4">
+                            Expected columns: ID, Origin, Destination, Quantity, Time_Window_Start, Time_Window_End
+                        </div>
+                        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                            <i class="fas fa-upload mr-2"></i>Upload Demands
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Metro Timetable Upload -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 flex items-center">
+                        <i class="fas fa-subway text-indigo-500 mr-2"></i>
+                        Metro Timetable
+                    </h3>
+                </div>
+                <div class="p-6">
+                    <form class="upload-form" data-type="metro_timetable">
+                        <div class="upload-area rounded-lg p-6 text-center mb-4" ondrop="dropHandler(event, 'metro_timetable')" ondragover="dragOverHandler(event)" ondragleave="dragLeaveHandler(event)">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Drag and drop your metro timetable Excel file here</p>
+                            <p class="text-sm text-gray-500 mb-4">or</p>
+                            <label class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded cursor-pointer">
+                                <i class="fas fa-folder-open mr-2"></i>Browse Files
+                                <input type="file" name="file" accept=".xlsx" class="hidden" onchange="fileSelected(this, 'metro_timetable')">
+                            </label>
+                        </div>
+                        <div class="text-sm text-gray-500 mb-4">
+                            Expected columns: Line_ID, Direction, Station_ID, Arrival_Time, Departure_Time
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50" disabled>
+                            <i class="fas fa-upload mr-2"></i>Upload Metro Timetable
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Status -->
+        <div id="uploadStatus" class="mt-8 hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Upload Status</h3>
+                <div id="statusContent">
+                    <!-- Status messages will appear here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notifications" class="fixed top-4 right-4 z-50"></div>
+
+    <script>
+        // Drag and drop handlers
+        function dragOverHandler(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+        }
+
+        function dragLeaveHandler(event) {
+            event.currentTarget.classList.remove('dragover');
+        }
+
+        function dropHandler(event, dataType) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.endsWith('.xlsx')) {
+                    handleFileUpload(file, dataType);
+                } else {
+                    showNotification('Please upload an Excel (.xlsx) file', 'error');
+                }
+            }
+        }
+
+        function fileSelected(input, dataType) {
+            const file = input.files[0];
+            if (file) {
+                handleFileUpload(file, dataType);
+            }
+        }
+
+        async function handleFileUpload(file, dataType) {
+            showUploadStatus(dataType, 'Uploading...', 'info');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`/api/upload/${dataType}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showUploadStatus(dataType, `${dataType} uploaded successfully!`, 'success');
+                    showNotification(`${dataType} file uploaded successfully`, 'success');
+                    
+                    // Enable the submit button
+                    const form = document.querySelector(`form[data-type="${dataType}"]`);
+                    const button = form.querySelector('button[type="submit"]');
+                    button.disabled = false;
+                    button.innerHTML = `<i class="fas fa-check mr-2"></i>Uploaded Successfully`;
+                    button.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-green-600', 'hover:bg-green-700', 'bg-purple-600', 'hover:bg-purple-700', 'bg-indigo-600', 'hover:bg-indigo-700');
+                    button.classList.add('bg-green-600');
+                    
+                } else {
+                    showUploadStatus(dataType, `Upload failed: ${result.error}`, 'error');
+                    showNotification(`Upload failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showUploadStatus(dataType, `Upload error: ${error.message}`, 'error');
+                showNotification('Upload failed due to network error', 'error');
+            }
+        }
+
+        function showUploadStatus(dataType, message, type) {
+            const statusDiv = document.getElementById('uploadStatus');
+            const contentDiv = document.getElementById('statusContent');
+            
+            statusDiv.classList.remove('hidden');
+            
+            const statusEntry = document.createElement('div');
+            statusEntry.className = `mb-2 p-3 rounded ${
+                type === 'success' ? 'bg-green-100 text-green-800' :
+                type === 'error' ? 'bg-red-100 text-red-800' :
+                'bg-blue-100 text-blue-800'
+            }`;
+            
+            statusEntry.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span><strong>${dataType}:</strong> ${message}</span>
+                    <span class="text-sm">${new Date().toLocaleTimeString()}</span>
+                </div>
+            `;
+            
+            contentDiv.insertBefore(statusEntry, contentDiv.firstChild);
+            
+            // Keep only last 10 status entries
+            while (contentDiv.children.length > 10) {
+                contentDiv.removeChild(contentDiv.lastChild);
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `mb-2 px-4 py-2 rounded shadow-lg ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                'bg-blue-500 text-white'
+            }`;
+            notification.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('notifications').appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+
+        // Handle form submissions (for manual upload)
+        document.querySelectorAll('.upload-form').forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const dataType = form.dataset.type;
+                const file = formData.get('file');
+                
+                if (!file || file.size === 0) {
+                    showNotification('Please select a file first', 'error');
+                    return;
+                }
+                
+                await handleFileUpload(file, dataType);
+            });
+        });
+    </script>
+</body>
+</html>

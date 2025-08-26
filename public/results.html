@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimization Results - Branch-and-Price Solver</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="text-white hover:text-gray-200 mr-4">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <i class="fas fa-chart-bar text-white text-2xl mr-3"></i>
+                    <span class="text-white text-xl font-bold">Optimization Results</span>
+                </div>
+                <div class="flex items-center">
+                    <button onclick="refreshResults()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded">
+                        <i class="fas fa-refresh mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Performance Chart -->
+        <div class="bg-white rounded-lg shadow mb-8 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Performance Trends</h3>
+            <canvas id="performanceChart" height="100"></canvas>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <i class="fas fa-trophy text-yellow-500 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Best Cost</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="bestCost">-</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <i class="fas fa-clock text-blue-500 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Avg Runtime</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="avgRuntime">-</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <i class="fas fa-route text-green-500 text-2xl mr-3"></i>
+                    <div>
+                        <p class="text-sm font-medium text-gray-500">Total Routes</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="totalRoutes">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Results Table -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Optimization Results</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Run ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Algorithm</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Runtime</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Iterations</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gap</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Routes</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsTableBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="9" class="px-6 py-4 text-center text-gray-500">Loading results...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Details Modal -->
+    <div id="detailsModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Optimization Details</h3>
+                <button onclick="hideDetailsModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="detailsContent">
+                <p class="text-gray-500">Loading details...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let performanceChart = null;
+
+        async function loadResults() {
+            try {
+                const response = await fetch('/api/results?limit=50');
+                const results = await response.json();
+                
+                renderResultsTable(results);
+                updateSummaryStats(results);
+                updatePerformanceChart(results);
+                
+            } catch (error) {
+                console.error('Error loading results:', error);
+                document.getElementById('resultsTableBody').innerHTML = 
+                    '<tr><td colspan="9" class="px-6 py-4 text-center text-red-500">Error loading results</td></tr>';
+            }
+        }
+
+        function renderResultsTable(results) {
+            const tbody = document.getElementById('resultsTableBody');
+            
+            if (results.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">No results found</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = results.map(result => {
+                const totalRoutes = (result.num_truck_routes || 0) + (result.num_drone_routes || 0) + (result.num_metro_schedules || 0);
+                const gapPercent = (result.final_gap * 100).toFixed(2);
+                const date = new Date(result.created_at).toLocaleDateString();
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${result.run_id}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                result.algorithm_type === 'Optimized' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                            }">${result.algorithm_type}</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">${result.total_cost.toFixed(2)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${result.total_runtime.toFixed(2)}s</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${result.num_iterations}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${gapPercent}%</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div class="flex space-x-1">
+                                ${result.num_truck_routes > 0 ? `<span class="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">${result.num_truck_routes} trucks</span>` : ''}
+                                ${result.num_drone_routes > 0 ? `<span class="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-800">${result.num_drone_routes} drones</span>` : ''}
+                                ${result.num_metro_schedules > 0 ? `<span class="inline-flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">${result.num_metro_schedules} metro</span>` : ''}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${date}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="viewDetails('${result.run_id}')" class="text-indigo-600 hover:text-indigo-900">
+                                <i class="fas fa-eye mr-1"></i>Details
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateSummaryStats(results) {
+            if (results.length === 0) {
+                document.getElementById('bestCost').textContent = 'N/A';
+                document.getElementById('avgRuntime').textContent = 'N/A';
+                document.getElementById('totalRoutes').textContent = 'N/A';
+                return;
+            }
+            
+            const bestCost = Math.min(...results.map(r => r.total_cost));
+            const avgRuntime = results.reduce((sum, r) => sum + r.total_runtime, 0) / results.length;
+            const totalRoutes = results.reduce((sum, r) => 
+                sum + (r.num_truck_routes || 0) + (r.num_drone_routes || 0) + (r.num_metro_schedules || 0), 0
+            );
+            
+            document.getElementById('bestCost').textContent = bestCost.toFixed(2);
+            document.getElementById('avgRuntime').textContent = avgRuntime.toFixed(2) + 's';
+            document.getElementById('totalRoutes').textContent = totalRoutes;
+        }
+
+        function updatePerformanceChart(results) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            
+            if (performanceChart) {
+                performanceChart.destroy();
+            }
+            
+            const labels = results.slice(0, 10).reverse().map((_, index) => `Run ${index + 1}`);
+            const costs = results.slice(0, 10).reverse().map(r => r.total_cost);
+            const runtimes = results.slice(0, 10).reverse().map(r => r.total_runtime);
+            
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Cost',
+                        data: costs,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        yAxisID: 'y',
+                        tension: 0.1
+                    }, {
+                        label: 'Runtime (seconds)',
+                        data: runtimes,
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        yAxisID: 'y1',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Recent Optimization Performance'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Total Cost'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Runtime (seconds)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
+
+        async function viewDetails(runId) {
+            try {
+                const response = await fetch(`/api/results/${runId}`);
+                const result = await response.json();
+                
+                let detailsHtml = `
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <h4 class="font-medium text-gray-900 mb-2">General Information</h4>
+                            <div class="space-y-1 text-sm">
+                                <p><span class="font-medium">Run ID:</span> ${result.run_id}</p>
+                                <p><span class="font-medium">Algorithm:</span> ${result.algorithm_type}</p>
+                                <p><span class="font-medium">Total Cost:</span> ${result.total_cost.toFixed(2)}</p>
+                                <p><span class="font-medium">Runtime:</span> ${result.total_runtime.toFixed(2)}s</p>
+                                <p><span class="font-medium">Iterations:</span> ${result.num_iterations}</p>
+                                <p><span class="font-medium">Final Gap:</span> ${(result.final_gap * 100).toFixed(2)}%</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="font-medium text-gray-900 mb-2">Routes Generated</h4>
+                            <div class="space-y-1 text-sm">
+                                <p><span class="font-medium">Truck Routes:</span> ${result.num_truck_routes || 0}</p>
+                                <p><span class="font-medium">Drone Routes:</span> ${result.num_drone_routes || 0}</p>
+                                <p><span class="font-medium">Metro Schedules:</span> ${result.num_metro_schedules || 0}</p>
+                                <p><span class="font-medium">Created:</span> ${new Date(result.created_at).toLocaleString()}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (result.solution_data && result.solution_data.truck_routes && result.solution_data.truck_routes.length > 0) {
+                    detailsHtml += `
+                        <div class="mb-4">
+                            <h4 class="font-medium text-gray-900 mb-2">Truck Routes</h4>
+                            <div class="space-y-2">
+                                ${result.solution_data.truck_routes.map(route => `
+                                    <div class="bg-gray-50 p-3 rounded text-sm">
+                                        <p><span class="font-medium">${route.route_id}:</span> ${route.route.join(' → ')}</p>
+                                        <p class="text-gray-600">Cost: ${route.total_cost.toFixed(2)} | Demands: ${route.demands_served.join(', ')}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (result.solution_data && result.solution_data.drone_routes && result.solution_data.drone_routes.length > 0) {
+                    detailsHtml += `
+                        <div class="mb-4">
+                            <h4 class="font-medium text-gray-900 mb-2">Drone Routes</h4>
+                            <div class="space-y-2">
+                                ${result.solution_data.drone_routes.map(route => `
+                                    <div class="bg-gray-50 p-3 rounded text-sm">
+                                        <p><span class="font-medium">${route.route_id}:</span> ${route.route.join(' → ')}</p>
+                                        <p class="text-gray-600">Cost: ${route.total_cost.toFixed(2)} | Demands: ${route.demands_served.join(', ')}</p>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                document.getElementById('detailsContent').innerHTML = detailsHtml;
+                document.getElementById('detailsModal').classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('Error loading result details:', error);
+                alert('Error loading result details');
+            }
+        }
+
+        function hideDetailsModal() {
+            document.getElementById('detailsModal').classList.add('hidden');
+        }
+
+        function refreshResults() {
+            loadResults();
+        }
+
+        // Load results on page load
+        window.addEventListener('DOMContentLoaded', loadResults);
+    </script>
+</body>
+</html>

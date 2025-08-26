@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Monitor - Branch-and-Price Solver</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .log-entry {
+            padding: 8px 12px;
+            border-left: 3px solid transparent;
+            margin-bottom: 4px;
+            border-radius: 4px;
+            animation: fadeIn 0.3s ease-in;
+        }
+        .log-info {
+            background-color: #f0f9ff;
+            border-color: #3b82f6;
+        }
+        .log-warning {
+            background-color: #fef3c7;
+            border-color: #f59e0b;
+        }
+        .log-error {
+            background-color: #fef2f2;
+            border-color: #ef4444;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-connected {
+            background-color: #10b981;
+            animation: pulse 2s infinite;
+        }
+        .status-disconnected {
+            background-color: #ef4444;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .log-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="text-white hover:text-gray-200 mr-4">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <i class="fas fa-tv text-white text-2xl mr-3"></i>
+                    <span class="text-white text-xl font-bold">Live Monitor</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center text-white">
+                        <span class="status-indicator" id="wsStatus"></span>
+                        <span id="wsStatusText">Connecting...</span>
+                    </div>
+                    <button onclick="clearLogs()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-4 py-2 rounded">
+                        <i class="fas fa-trash mr-2"></i>Clear Logs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Control Panel -->
+        <div class="bg-white rounded-lg shadow mb-8 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Optimization Control</h3>
+            <div class="flex space-x-4">
+                <button id="optimizeBtn" onclick="startOptimization()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fas fa-play mr-2"></i>
+                    Start Optimization
+                </button>
+                <button onclick="testConnection()" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+                    <i class="fas fa-heartbeat mr-2"></i>
+                    Test Connection
+                </button>
+            </div>
+        </div>
+
+        <!-- Live Logs -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- System Logs -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">System Logs</h3>
+                    <p class="text-sm text-gray-500">Real-time optimization progress</p>
+                </div>
+                <div class="p-6">
+                    <div class="log-container" id="systemLogs">
+                        <p class="text-gray-500 text-sm">Waiting for system logs...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900">Performance Metrics</h3>
+                    <p class="text-sm text-gray-500">Real-time system performance</p>
+                </div>
+                <div class="p-6">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-500">Database Connections</span>
+                            <span class="text-sm font-semibold text-gray-900" id="dbConnections">-</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-500">WebSocket Clients</span>
+                            <span class="text-sm font-semibold text-gray-900" id="wsClients">-</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-500">Last Optimization</span>
+                            <span class="text-sm font-semibold text-gray-900" id="lastOptimization">-</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium text-gray-500">Database Size</span>
+                            <span class="text-sm font-semibold text-gray-900" id="dbSize">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="mt-8 bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">Recent Activity</h3>
+            </div>
+            <div class="p-6">
+                <div id="recentActivity">
+                    <p class="text-gray-500">Loading recent activity...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateConnectionStatus(true);
+                    reconnectAttempts = 0;
+                    
+                    addSystemLog('WebSocket connected successfully', 'info');
+                };
+                
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleWebSocketMessage(data);
+                    } catch (e) {
+                        console.error('Error parsing WebSocket message:', e);
+                    }
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    updateConnectionStatus(false);
+                    addSystemLog('WebSocket connection lost', 'warning');
+                    
+                    // Attempt to reconnect
+                    if (reconnectAttempts < maxReconnectAttempts) {
+                        setTimeout(() => {
+                            reconnectAttempts++;
+                            addSystemLog(`Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`, 'info');
+                            connectWebSocket();
+                        }, 2000 * reconnectAttempts);
+                    } else {
+                        addSystemLog('Max reconnection attempts reached', 'error');
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    updateConnectionStatus(false);
+                    addSystemLog('WebSocket connection error', 'error');
+                };
+            } catch (e) {
+                console.error('Failed to create WebSocket connection:', e);
+                updateConnectionStatus(false);
+                addSystemLog('Failed to establish WebSocket connection', 'error');
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusIndicator = document.getElementById('wsStatus');
+            const statusText = document.getElementById('wsStatusText');
+            
+            if (connected) {
+                statusIndicator.className = 'status-indicator status-connected';
+                statusText.textContent = 'Connected';
+            } else {
+                statusIndicator.className = 'status-indicator status-disconnected';
+                statusText.textContent = 'Disconnected';
+            }
+        }
+
+        function handleWebSocketMessage(data) {
+            switch (data.type) {
+                case 'optimization_started':
+                    addSystemLog(`Optimization started with ${data.data.algorithm_type} algorithms`, 'info');
+                    break;
+                case 'optimization_log':
+                    addSystemLog(data.data.message, getLogLevel(data.data.message));
+                    break;
+                case 'optimization_completed':
+                    const message = data.data.success ? 
+                        'Optimization completed successfully!' : 
+                        `Optimization failed with exit code ${data.data.exit_code}`;
+                    addSystemLog(message, data.data.success ? 'info' : 'error');
+                    
+                    if (data.data.success) {
+                        loadPerformanceMetrics();
+                    }
+                    break;
+                case 'optimization_result':
+                    addSystemLog(`New result: Cost ${data.data.total_cost.toFixed(2)}, Runtime ${data.data.total_runtime.toFixed(2)}s`, 'info');
+                    break;
+                case 'optimization_error':
+                    addSystemLog(`Optimization error: ${data.data.error}`, 'error');
+                    break;
+                default:
+                    console.log('Unknown WebSocket message:', data);
+            }
+        }
+
+        function getLogLevel(message) {
+            const lowerMessage = message.toLowerCase();
+            if (lowerMessage.includes('error')) {
+                return 'error';
+            } else if (lowerMessage.includes('warning')) {
+                return 'warning';
+            }
+            return 'info';
+        }
+
+        function addSystemLog(message, level = 'info') {
+            const container = document.getElementById('systemLogs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${level}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <span class="text-sm">${message}</span>
+                    <span class="text-xs text-gray-500 ml-2">${timestamp}</span>
+                </div>
+            `;
+            
+            // Remove placeholder if exists
+            const placeholder = container.querySelector('p');
+            if (placeholder && placeholder.textContent.includes('Waiting for system logs')) {
+                container.removeChild(placeholder);
+            }
+            
+            container.insertBefore(entry, container.firstChild);
+            
+            // Keep only last 100 entries
+            while (container.children.length > 100) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        async function startOptimization() {
+            const button = document.getElementById('optimizeBtn');
+            const originalText = button.innerHTML;
+            
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Starting...';
+            
+            addSystemLog('User requested optimization start', 'info');
+            
+            try {
+                const response = await fetch('/api/optimize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ algorithm_type: 'optimized' })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addSystemLog('Optimization request submitted successfully', 'info');
+                } else {
+                    addSystemLog(`Failed to start optimization: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error starting optimization:', error);
+                addSystemLog(`Error starting optimization: ${error.message}`, 'error');
+            } finally {
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.innerHTML = originalText;
+                }, 2000);
+            }
+        }
+
+        async function testConnection() {
+            addSystemLog('Testing server connection...', 'info');
+            
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                if (data.status === 'healthy') {
+                    addSystemLog('Server connection test passed', 'info');
+                    updatePerformanceMetrics(data);
+                } else {
+                    addSystemLog('Server connection test failed', 'warning');
+                }
+            } catch (error) {
+                addSystemLog(`Connection test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function updatePerformanceMetrics(data) {
+            if (data.websocket_clients !== undefined) {
+                document.getElementById('wsClients').textContent = data.websocket_clients;
+            }
+        }
+
+        async function loadPerformanceMetrics() {
+            try {
+                const [healthResponse, statsResponse] = await Promise.all([
+                    fetch('/api/health'),
+                    fetch('/api/stats')
+                ]);
+                
+                const health = await healthResponse.json();
+                const stats = await statsResponse.json();
+                
+                document.getElementById('wsClients').textContent = health.websocket_clients || 0;
+                document.getElementById('dbConnections').textContent = '1'; // SQLite single connection
+                document.getElementById('dbSize').textContent = stats.db_size_mb ? `${stats.db_size_mb} MB` : 'N/A';
+                
+                // Load last optimization time
+                const resultsResponse = await fetch('/api/results?limit=1');
+                const results = await resultsResponse.json();
+                
+                if (results.length > 0) {
+                    const lastRun = new Date(results[0].created_at);
+                    document.getElementById('lastOptimization').textContent = lastRun.toLocaleString();
+                } else {
+                    document.getElementById('lastOptimization').textContent = 'No runs yet';
+                }
+                
+            } catch (error) {
+                console.error('Error loading performance metrics:', error);
+                addSystemLog('Error loading performance metrics', 'warning');
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const response = await fetch('/api/metrics?type=optimization_completed&limit=10');
+                const metrics = await response.json();
+                
+                const container = document.getElementById('recentActivity');
+                
+                if (metrics.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">No recent activity</p>';
+                    return;
+                }
+                
+                container.innerHTML = metrics.map(metric => {
+                    const time = new Date(metric.timestamp).toLocaleString();
+                    const data = metric.metric_data || {};
+                    
+                    return `
+                        <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">Optimization completed</div>
+                                <div class="text-xs text-gray-500">
+                                    ${data.algorithm_type || 'Unknown'} • 
+                                    Cost: ${metric.metric_value.toFixed(2)} • 
+                                    Runtime: ${data.total_runtime ? data.total_runtime.toFixed(2) + 's' : 'N/A'}
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-400">${time}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+                document.getElementById('recentActivity').innerHTML = '<p class="text-red-500">Error loading activity</p>';
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('systemLogs').innerHTML = '<p class="text-gray-500 text-sm">Logs cleared</p>';
+            addSystemLog('Logs cleared by user', 'info');
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
+            loadPerformanceMetrics();
+            loadRecentActivity();
+            
+            // Refresh metrics every 30 seconds
+            setInterval(loadPerformanceMetrics, 30000);
+        });
+    </script>
+</body>
+</html>

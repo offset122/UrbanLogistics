@@ -1,6 +1,7 @@
 """
 Algorithm 7: Branch-and-Price Main Loop
 Complete Branch-and-Price solver coordinating RMP and pricing algorithms.
+Integrated with SQLite database for real-time data storage and Gurobi optimization.
 """
 
 import time
@@ -8,6 +9,8 @@ import os
 from typing import List, Dict, Any, Optional, Tuple
 from collections import deque
 import pandas as pd
+from datetime import datetime
+import uuid
 
 from data_loader import DataLoader
 from data_structures import (
@@ -21,6 +24,8 @@ from algorithm4_bla_t import BLATSolver
 from algorithm5_bla_d import BLADSolver
 from algorithm6_bala_m import BALAMSolver
 from excel_writer import ExcelWriter
+from database import db_manager
+from gurobi_config import gurobi_config
 from utils import log_message
 from config import (
     COLUMN_GENERATION_TOLERANCE, BRANCHING_TOLERANCE, MAX_ITERATIONS,
@@ -58,6 +63,18 @@ class BranchAndPriceSolver:
         self.stats = SolutionStats()
         self.start_time: float = 0.0
         
+        # Database and configuration integration
+        self.run_id = str(uuid.uuid4())[:8]  # Unique run identifier
+        self.db_integration_enabled = True
+        
+        # Initialize Gurobi configuration and verify license
+        if not gurobi_config.license_configured:
+            log_message("Warning: Gurobi license not configured properly", "WARNING")
+            log_message("Consider getting academic license at https://www.gurobi.com/academia/", "INFO")
+        else:
+            log_message("Gurobi license validated successfully")
+            gurobi_config.setup_environment_variables()
+        
     def solve(self) -> bool:
         """
         Main solve method implementing the complete Branch-and-Price algorithm.
@@ -74,6 +91,10 @@ class BranchAndPriceSolver:
                 log_message("Failed to load data", "ERROR")
                 return False
             
+            # Store initial data in database
+            if self.db_integration_enabled:
+                self._store_initial_data_to_database()
+                
             # Initialize with empty columns
             self._initialize_columns()
             
@@ -134,8 +155,12 @@ class BranchAndPriceSolver:
                 # Log iteration
                 self._log_iteration(current_node, node_result)
             
-            # Finalize solution
+            # Finalize solution and save to database
             self._finalize_solution()
+            
+            # Save final results to database
+            if self.db_integration_enabled:
+                self._save_optimization_results_to_database()
             
             log_message("Branch-and-Price solver completed")
             return True
@@ -461,6 +486,23 @@ class BranchAndPriceSolver:
             'demands_served': list(column.details['a_ip'].keys())
         }
     
+    def _extract_route_info(self, column: Column) -> Dict[str, Any]:
+        """Extract general route information for any vehicle type."""
+        if column.vehicle_type == VehicleType.TRUCK:
+            return self._extract_truck_route(column)
+        elif column.vehicle_type == VehicleType.DRONE:
+            return self._extract_drone_route(column)
+        elif column.vehicle_type == VehicleType.METRO:
+            return self._extract_metro_schedule(column)
+        else:
+            return {
+                'route_id': column.id,
+                'vehicle_type': column.vehicle_type.value,
+                'route': column.details['route'],
+                'total_cost': column.direct_cost,
+                'demands_served': list(column.details['a_ip'].keys())
+            }
+    
     def _extract_metro_schedule(self, column: Column) -> Dict[str, Any]:
         """Extract metro schedule information."""
         return {
@@ -508,6 +550,108 @@ class BranchAndPriceSolver:
             'final_gap': self.stats.final_gap,
             'columns_generated': len(self.columns)
         }
+    
+    # Database Integration Methods
+    
+    def _store_initial_data_to_database(self):
+        """Store initial problem data to database."""
+        log_message("Storing initial data to database")
+        
+        try:
+            # Store nodes
+            for node_id, node in self.data_loader.nodes.items():
+                db_manager.insert_node(node)
+            
+            # Store vehicles
+            for vehicle_id, vehicle in self.data_loader.vehicles.items():
+                db_manager.insert_vehicle(vehicle)
+            
+            # Store demands
+            for demand_id, demand in self.data_loader.demands.items():
+                db_manager.insert_demand(demand)
+                
+            # Log metrics
+            db_manager.log_real_time_metric(
+                "problem_size", 
+                len(self.data_loader.nodes),
+                {
+                    "num_nodes": len(self.data_loader.nodes),
+                    "num_vehicles": len(self.data_loader.vehicles),
+                    "num_demands": len(self.data_loader.demands),
+                    "run_id": self.run_id,
+                    "algorithm_type": "Optimized" if self.use_optimized else "Basic"
+                }
+            )
+            
+            log_message("Initial data stored successfully")
+            
+        except Exception as e:
+            log_message(f"Error storing initial data: {str(e)}", "ERROR")
+            self.db_integration_enabled = False
+    
+    def _save_optimization_results_to_database(self):
+        """Save optimization results to database."""
+        log_message("Saving optimization results to database")
+        
+        try:
+            algorithm_type = "Optimized" if self.use_optimized else "Basic"
+            
+            # Create solution data dictionary
+            solution_data = {
+                "run_id": self.run_id,
+                "algorithm_type": algorithm_type,
+                "truck_routes": [self._extract_route_info(col) for col in self.columns 
+                                if col.type == ColumnType.TRUCK_ROUTE],
+                "drone_routes": [self._extract_route_info(col) for col in self.columns 
+                                if col.type == ColumnType.DRONE_ROUTE],
+                "metro_schedules": [self._extract_metro_schedule(col) for col in self.columns 
+                                  if col.type == ColumnType.METRO_SCHEDULE],
+                "iteration_log": self.iteration_log,
+                "best_integer_solution": self.best_integer_solution,
+                "gurobi_info": gurobi_config.get_license_info()
+            }
+            
+            # Save to database
+            success = db_manager.save_optimization_result(
+                run_id=self.run_id,
+                algorithm_type=algorithm_type,
+                stats=self.stats,
+                solution_data=solution_data
+            )
+            
+            if success:
+                log_message(f"Optimization results saved with run_id: {self.run_id}")
+                
+                # Log final performance metrics
+                db_manager.log_real_time_metric(
+                    "optimization_completed",
+                    self.stats.total_cost,
+                    {
+                        "run_id": self.run_id,
+                        "algorithm_type": algorithm_type,
+                        "total_runtime": self.stats.total_runtime,
+                        "iterations": self.stats.num_iterations,
+                        "final_gap": self.stats.final_gap,
+                        "columns_generated": len(self.columns)
+                    }
+                )
+            else:
+                log_message("Failed to save optimization results", "WARNING")
+                
+        except Exception as e:
+            log_message(f"Error saving optimization results: {str(e)}", "ERROR")
+    
+    def get_database_stats(self) -> Dict[str, Any]:
+        """Get current database statistics."""
+        return db_manager.get_database_stats()
+        
+    def get_gurobi_info(self) -> Dict[str, Any]:
+        """Get Gurobi configuration information."""
+        return gurobi_config.get_license_info()
+        
+    def get_performance_metrics(self, metric_type: str = "optimization_completed") -> List[Dict[str, Any]]:
+        """Get performance metrics from database."""
+        return db_manager.get_real_time_metrics(metric_type)
 
 def main():
     """Main function to run the Branch-and-Price solver."""

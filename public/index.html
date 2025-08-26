@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Branch-and-Price Urban Logistics Solver</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-active {
+            background-color: #10b981;
+            animation: pulse 2s infinite;
+        }
+        .status-inactive {
+            background-color: #ef4444;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="gradient-bg shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-route text-white text-2xl mr-3"></i>
+                    <span class="text-white text-xl font-bold">Branch-and-Price Urban Logistics</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center text-white">
+                        <span class="status-indicator status-active"></span>
+                        <span>System Active</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Dashboard Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-map-marker-alt text-blue-500 text-3xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500 truncate">Network Nodes</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="nodesCount">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-truck text-green-500 text-3xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500 truncate">Vehicles</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="vehiclesCount">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-box text-purple-500 text-3xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500 truncate">Demands</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="demandsCount">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-chart-line text-orange-500 text-3xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-500 truncate">Optimization Runs</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="optimizationRuns">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Optimization Control -->
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-play-circle text-blue-600 text-2xl mr-3"></i>
+                    <h3 class="text-lg font-medium text-gray-900">Run Optimization</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">Start the Branch-and-Price solver to optimize delivery routes</p>
+                <button onclick="startOptimization()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg">
+                    <i class="fas fa-play mr-2"></i>
+                    Start Optimization
+                </button>
+            </div>
+
+            <!-- Data Management -->
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-database text-green-600 text-2xl mr-3"></i>
+                    <h3 class="text-lg font-medium text-gray-900">Manage Data</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">View and edit nodes, vehicles, and delivery demands</p>
+                <a href="data.html" class="block w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-center">
+                    <i class="fas fa-edit mr-2"></i>
+                    Manage Data
+                </a>
+            </div>
+
+            <!-- Results Viewer -->
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-chart-bar text-purple-600 text-2xl mr-3"></i>
+                    <h3 class="text-lg font-medium text-gray-900">View Results</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">Analyze optimization results and performance metrics</p>
+                <a href="results.html" class="block w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg text-center">
+                    <i class="fas fa-eye mr-2"></i>
+                    View Results
+                </a>
+            </div>
+
+            <!-- Real-time Monitor -->
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-desktop text-indigo-600 text-2xl mr-3"></i>
+                    <h3 class="text-lg font-medium text-gray-900">Live Monitor</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">Monitor optimization progress in real-time</p>
+                <a href="monitor.html" class="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg text-center">
+                    <i class="fas fa-tv mr-2"></i>
+                    Live Monitor
+                </a>
+            </div>
+
+            <!-- Upload Data -->
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-upload text-yellow-600 text-2xl mr-3"></i>
+                    <h3 class="text-lg font-medium text-gray-900">Upload Files</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">Upload Excel files with network data</p>
+                <a href="upload.html" class="block w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg text-center">
+                    <i class="fas fa-file-excel mr-2"></i>
+                    Upload Data
+                </a>
+            </div>
+
+            <!-- System Status -->
+            <div class="bg-white rounded-lg shadow card-hover p-6">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-heartbeat text-red-600 text-2xl mr-3"></i>
+                    <h3 class="text-lg font-medium text-gray-900">System Status</h3>
+                </div>
+                <p class="text-gray-600 text-sm mb-4">Check database and system health</p>
+                <button onclick="checkStatus()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg">
+                    <i class="fas fa-check-circle mr-2"></i>
+                    Check Status
+                </button>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="mt-8 bg-white rounded-lg shadow">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Recent Optimization Results</h3>
+            </div>
+            <div class="px-6 py-4">
+                <div id="recentResults" class="space-y-4">
+                    <p class="text-gray-500">Loading recent results...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Area -->
+    <div id="notifications" class="fixed top-4 right-4 z-50"></div>
+
+    <script>
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/stats');
+                const stats = await response.json();
+                
+                document.getElementById('nodesCount').textContent = stats.nodes_count || 0;
+                document.getElementById('vehiclesCount').textContent = stats.vehicles_count || 0;
+                document.getElementById('demandsCount').textContent = stats.demands_count || 0;
+                document.getElementById('optimizationRuns').textContent = stats.results_count || 0;
+                
+                loadRecentResults();
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showNotification('Error loading dashboard data', 'error');
+            }
+        }
+
+        async function loadRecentResults() {
+            try {
+                const response = await fetch('/api/results?limit=5');
+                const results = await response.json();
+                
+                const container = document.getElementById('recentResults');
+                if (results.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500">No optimization results yet.</p>';
+                    return;
+                }
+                
+                container.innerHTML = results.map(result => `
+                    <div class="flex justify-between items-center py-3 border-b border-gray-100 last:border-b-0">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">Run ${result.run_id}</div>
+                            <div class="text-xs text-gray-500">${result.algorithm_type} • Cost: ${result.total_cost.toFixed(2)} • ${result.total_runtime.toFixed(2)}s</div>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                            ${new Date(result.created_at).toLocaleDateString()}
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Error loading recent results:', error);
+            }
+        }
+
+        async function startOptimization() {
+            showNotification('Starting optimization...', 'info');
+            
+            try {
+                const response = await fetch('/api/optimize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ algorithm_type: 'optimized' })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('Optimization completed successfully!', 'success');
+                    setTimeout(() => {
+                        loadDashboardData();
+                    }, 2000);
+                } else {
+                    showNotification('Optimization failed: ' + (result.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error starting optimization:', error);
+                showNotification('Error starting optimization: ' + error.message, 'error');
+            }
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/health');
+                const status = await response.json();
+                
+                if (status.status === 'healthy') {
+                    showNotification('System is healthy and running normally', 'success');
+                } else {
+                    showNotification('System status: ' + status.status, 'warning');
+                }
+            } catch (error) {
+                showNotification('Error checking system status', 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `mb-2 px-4 py-2 rounded shadow-lg ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                type === 'warning' ? 'bg-yellow-500 text-black' :
+                'bg-blue-500 text-white'
+            }`;
+            notification.textContent = message;
+            
+            document.getElementById('notifications').appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+
+        // Load data on page load
+        window.addEventListener('DOMContentLoaded', loadDashboardData);
+    </script>
+</body>
+</html>

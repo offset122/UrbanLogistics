@@ -183,10 +183,24 @@ class MetroBALabel:
             time=self.time,
             load=self.load,
             cost=self.cost,
-            big_arcs=[arc.copy() for arc in self.big_arcs],
+            big_arcs=[arc.copy() if hasattr(arc, 'copy') else arc for arc in self.big_arcs],
             cargo_up=self.cargo_up,
             cargo_down=self.cargo_down
         )
+    
+    def dominates(self, other: 'MetroBALabel') -> bool:
+        """Check if this label dominates another."""
+        if self.station != other.station:
+            return False
+        
+        return (self.time <= other.time and 
+                self.load <= other.load and
+                self.cost <= other.cost and
+                self.cargo_up >= other.cargo_up and
+                self.cargo_down >= other.cargo_down and
+                (self.time < other.time or self.load < other.load or 
+                 self.cost < other.cost or self.cargo_up > other.cargo_up or
+                 self.cargo_down > other.cargo_down))
 
 @dataclass
 class BapNode:
