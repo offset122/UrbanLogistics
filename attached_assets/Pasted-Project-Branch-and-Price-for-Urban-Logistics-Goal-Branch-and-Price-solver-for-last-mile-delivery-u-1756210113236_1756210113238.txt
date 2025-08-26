@@ -1,0 +1,111 @@
+Project: Branch-and-Price for Urban Logistics
+Goal
+
+Branch-and-Price solver for last-mile delivery using drones, trucks, and metro.
+
+RMP (Master Problem): choose routes/schedules (columns) → demand, resources, inventory balance.
+
+Pricing (RCSPP via label-setting):
+
+Drones: ULA-D (basic), BLA-D (bidirectional)
+
+Trucks: ULA-T (basic), BLA-T (bidirectional)
+
+Metro: SELA-M (basic), BALA-M (big-arc)
+
+📂 Code Layout
+/data      → 5 Excel inputs (raw)  
+/output    → Excel results  
+
+data_loader.py      → unify headers, parse time, build nodes/params/matrices, metro lookup  
+data_structures.py  → Column, Labels (Drone/Truck/Metro), BapNode  
+main_bap.py         → Algo 7 (Branch-and-Price loop w/ Gurobi RMP + pricing)  
+algorithm1_…6.py    → Basic (1–3) + Optimized (4–6) pricing solvers  
+
+🔑 Core Data
+
+Normalize headers (CN→EN), e.g. 节点ID → node_id
+
+Convert all times → minutes from 00:00
+
+Build: nodes, params, dist/time matrices, metro timetables
+
+Time res: 1 min internal, 15 min resource slices
+
+🧩 Data Structures
+
+Column(type, id, direct_cost, reduced_cost, details={a_ip, delta_up,…})
+
+Labels:
+
+DroneLabel(time, load, energy, …)
+
+TruckLabel(time, load, …)
+
+MetroLabel / MetroBALabel
+
+BapNode(id, parent_id, columns, constraints, lower_bound, …)
+
+📉 RMP (Gurobi)
+
+Objective: resource + route costs
+
+Constraints:
+
+Demand served once
+
+Resource caps per slice (drones, trucks)
+
+Pilot caps per slice
+
+Metro: ≤1 schedule/run
+
+Inventory balance (up/down lines, capacity)
+
+Branching constraints
+
+Duals: extract inventory ψ_up/ψ_down for pricing
+
+⚡ Pricing (RCSPP)
+
+Objective: reduced cost via ψ duals
+
+Cargo revenue/cost tied to ψ_up, ψ_down
+
+Basic (1–3): unidirectional, stepwise metro
+
+Optimized (4–6): bidirectional road/air; metro big-arcs
+
+🌲 Branching
+
+If LP fractional → branch on variable (λ, μ) → =0 / =1 → enqueue node
+
+📊 Outputs (Excel)
+
+Metro timetables (up/down)
+
+Drone routes (per-leg load, energy)
+
+Truck routes (per-leg load)
+
+Shipments per train (up/down)
+
+RMP bounds (iteration log)
+
+Runtime comparison: basic (1–3) vs optimized (4–6)
+
+🚀 Roadmap
+
+data_loader: normalize headers, parse times, build matrices/lookups
+
+data_structures: define Column/Labels/BapNode
+
+RMP builder: wrapper for Gurobi (model, duals, warm starts)
+
+Pricing: Truck ULA-T → Drone ULA-D → Metro SELA-M → optimized versions
+
+B&P loop: column gen until no negative reduced cost → branching
+
+Excel writers: deterministic exporters (7 outputs)
+
+Benchmark: compare basic vs optimized, log bounds & runtime
